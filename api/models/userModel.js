@@ -1,3 +1,7 @@
+const bcrypt = require('bcrypt');
+const { decryptPassword } = require('../utility/decryptPassword.js');
+const { hashPassword } = require('../utility/hashPassword.js');
+
 // Get dbServiceInstance
 async function getDbServiceInstance() {
     try{
@@ -21,8 +25,10 @@ async function loginModel(username, password){
 
         if(response || response.length > 0){
             const storedPassword = response[0].password;
-            if(password == storedPassword){
-                return { success: true, message: 'Login successful', user_id: response[0].user_id};
+            const decryptedPassword = await decryptPassword(password);
+            const isPasswordValid = await bcrypt.compare(decryptedPassword, storedPassword);
+            if(isPasswordValid){
+                return {success: true, message: 'Login succesfull', user_id: response[0].user_id};
             }else{
                 return { success: false, message: 'incorrect password'};
             }
@@ -37,9 +43,13 @@ async function loginModel(username, password){
 
 async function createUserModel(username, password){
     try{
+
+        const decryptedPassword = await decryptPassword(password);
+        const hashedPassword = await hashPassword(decryptedPassword);
+
         const dbServiceInstance = await getDbServiceInstance();
         const query = 'INSERT INTO public.user (username, password) VALUES ($1, $2);'
-        const params = [username, password];
+        const params = [username, hashedPassword];
         const response = await dbServiceInstance.queryMethod(query, params);
         return response;
     }catch(error){
